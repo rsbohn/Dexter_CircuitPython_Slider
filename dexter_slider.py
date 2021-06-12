@@ -32,6 +32,59 @@ Implementation Notes
 """
 
 # imports
+from adafruit_displayio_layout.widgets.widget import Widget
+from adafruit_displayio_layout.widgets.control import Control
+from adafruit_display_shapes.rect import Rectangle
+from adafruit_display_text.label import Label
 
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/rsbohn/Dexter_CircuitPython_Slider.git"
+
+class Slider(Widget, Control):
+    def __init__(self, x, y, width, height, name, limits=(0,100), value=50, **kwargs):
+        super().__init__(x=x,y=y,width=width,height=height, **kwargs)
+        self.touch_boundary=(0,0,width,height)
+        self.name = name
+        self.limits = limits
+        self.value = value
+        self.frame_color=0xFFFFFF
+        self.bar_color=0xCCCCCC
+        self.error_color=0xCC0000
+
+        self.frame = Rect(0,0,width,height,outline=self.frame_color)
+        self.append(self.frame)
+        self.bar = self._make_bar(value, self.bar_color)
+        self.append(self.bar)
+        self.title = Title(f"{self.name}:{self.value}", self.frame_color)
+        self.title.anchored_position = (8, height-12)
+        self.append(self.title)
+    def contains(self, point):
+        return super().contains(
+                (point[0]-self.x, point[1]-self.y))
+    def _make_bar(self, value):
+        vmin = self.limits[0]
+        vmax = self.limits[1]
+        width = int(self.width * (value - vmin) / (vmax - vmin))
+        return Rect(1,1, width-2, self.height-2, fill=self.bar_color)
+    def _scale(self, value):
+        vmin = self.limits[0]
+        vmax = self.limits[1]
+        new_value = int(vmin + (vmax-vmin) * (value - self.x) / self.width)
+        limited = False
+        if new_value > vmax:
+            new_value = vmax
+            limited = True
+        if new_value <= vmin:
+            new_value = vmin
+            limited = True
+        return new_value, limited
+    def set_value(self, value):
+        new_value, limited = self._scale(value)
+        self.value = new_value
+        self.remove(self.bar)
+        self.bar = self._make_bar(new_value)
+        if limited:
+            self.bar.fill = self.error_color
+        self.insert(1, self.bar)
+        self.title.text = f"{self.name}:{self.value}"
+        return self.value
