@@ -34,8 +34,9 @@ Implementation Notes
 # imports
 from adafruit_displayio_layout.widgets.widget import Widget
 from adafruit_displayio_layout.widgets.control import Control
-from adafruit_display_shapes.rect import Rectangle
+from adafruit_display_shapes.rect import Rect
 from adafruit_display_text.label import Label
+import terminalio
 
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/rsbohn/Dexter_CircuitPython_Slider.git"
@@ -48,14 +49,15 @@ class Slider(Widget, Control):
         self.limits = limits
         self.value = value
         self.frame_color=0xFFFFFF
-        self.bar_color=0xCCCCCC
+        self.bar_color=0x666666
         self.error_color=0xCC0000
 
         self.frame = Rect(0,0,width,height,outline=self.frame_color)
         self.append(self.frame)
-        self.bar = self._make_bar(value, self.bar_color)
+        self.bar = self._make_bar(value)
         self.append(self.bar)
-        self.title = Title(f"{self.name}:{self.value}", self.frame_color)
+        self.title = Label(terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color)
+        self.title.anchor_point = (0,1/2)
         self.title.anchored_position = (8, height-12)
         self.append(self.title)
     def contains(self, point):
