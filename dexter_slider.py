@@ -30,6 +30,7 @@ Implementation Notes
 # * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 # * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
+# pylint: disable=too-many-arguments
 
 # imports
 from adafruit_displayio_layout.widgets.widget import Widget
@@ -41,52 +42,120 @@ import terminalio
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/rsbohn/Dexter_CircuitPython_Slider.git"
 
+
+class BaseSlide:
+    """Base class for Vertical/Horizontal Slide"""
+
+    def __init__(self, limits=(0, 100), value=50):
+        self.limits = limits
+        self.value = value
+
+    def scale(self, new_value):
+        """normalize new_value to a float [0.0:1.0)"""
+        return (new_value - self.limits[0]) / (self.limits[1] - self.limits[0])
+
+
+class HorizontalSlide(BaseSlide):
+    """A horizontal indicator, grows left to right"""
+
+    def __init__(self, width, height, limits, value, fill):
+        super().__init__(limits, value)
+        self.width = width
+        self.height = height
+        self.fill = fill
+        self.rect = self._as_rect()
+
+    def _as_rect(self):
+        scaled_width = int(self.scale(self.value) * self.width)
+        scaled_width = max(3, scaled_width)
+        return Rect(1, 1, scaled_width - 2, self.height - 2, fill=self.fill)
+
+
+class VerticalSlide(BaseSlide):
+    """A vertical indicator slide, grows upwards"""
+
+    def __init__(self, width, height, limits, value, fill):
+        super().__init__(limits, value)
+        self.width = width
+        self.height = height
+        self.fill = fill
+        self.rect = self._as_rect()
+
+    def _as_rect(self):
+        scaled_height = int(self.scale(self.value) * self.height)
+        scaled_height = max(3, scaled_height)
+        return Rect(
+            1,
+            self.height - scaled_height + 1,
+            self.width - 2,
+            scaled_height - 2,
+            fill=self.fill,
+        )
+
+    def update(self, point):
+        """Update with a new slider position."""
+        scaled_value = (self.height - point[1]) / self.height
+        self.value = (self.limits[1] - self.limits[0]) * scaled_value + self.limits[0]
+        self.rect = self._as_rect()
+        return self.value
+
+
 class Slider(Widget, Control):
-    def __init__(self, x, y, width, height, name, limits=(0,100), value=50, **kwargs):
-        super().__init__(x=x,y=y,width=width,height=height, **kwargs)
-        self.touch_boundary=(0,0,width,height)
+    """A slider control widget. Value is set within limits.
+
+    -- I should have a long list of parameters here.
+
+    """
+
+    def __init__(self, x, y, width, height, name, limits=(0, 100), value=50, **kwargs):
+        super().__init__(x=x, y=y, width=width, height=height, **kwargs)
+        self.touch_boundary = (0, 0, width, height)
         self.name = name
         self.limits = limits
         self.value = value
-        self.frame_color=0xFFFFFF
-        self.bar_color=0x666666
-        self.error_color=0xCC0000
+        self.frame_color = 0xFFFFFF
+        self.slide_color = 0x666666
+        self.error_color = 0xCC0000
 
-        self.frame = Rect(0,0,width,height,outline=self.frame_color)
+        self.frame = Rect(0, 0, width, height, outline=self.frame_color)
         self.append(self.frame)
-        self.bar = self._make_bar(value)
-        self.append(self.bar)
-        self.title = Label(terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color)
-        self.title.anchor_point = (0,1/2)
-        self.title.anchored_position = (8, height-12)
+        if width >= height:
+            self.slide = HorizontalSlide(
+                width, height, limits=limits, value=value, fill=self.slide_color
+            )
+        else:
+            self.slide = VerticalSlide(
+                width, height, limits=limits, value=value, fill=self.slide_color
+            )
+        self.append(self.slide.rect)
+        self.title = Label(
+            terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color
+        )
+        self.title.anchor_point = (0, 1 / 2)
+        self.title.anchored_position = (8, height - 12)
         self.append(self.title)
+
     def contains(self, point):
-        return super().contains(
-                (point[0]-self.x, point[1]-self.y))
-    def _make_bar(self, value):
-        vmin = self.limits[0]
-        vmax = self.limits[1]
-        width = int(self.width * (value - vmin) / (vmax - vmin))
-        return Rect(1,1, width-2, self.height-2, fill=self.bar_color)
-    def _scale(self, value):
-        vmin = self.limits[0]
-        vmax = self.limits[1]
-        new_value = int(vmin + (vmax-vmin) * (value - self.x) / self.width)
-        limited = False
-        if new_value > vmax:
-            new_value = vmax
-            limited = True
-        if new_value <= vmin:
-            new_value = vmin
-            limited = True
-        return new_value, limited
-    def set_value(self, value):
-        new_value, limited = self._scale(value)
-        self.value = new_value
-        self.remove(self.bar)
-        self.bar = self._make_bar(new_value)
-        if limited:
-            self.bar.fill = self.error_color
-        self.insert(1, self.bar)
-        self.title.text = f"{self.name}:{self.value}"
-        return self.value
+        """Checks if the Control was touched.  Returns True if the touch_point is within the
+         Control's touch_boundary.
+
+        :param point: x,y screen location of the touch point.
+        :type touch_point: Tuple[x,y]
+        :return: Boolean
+
+        """
+        return super().contains((point[0] - self.x, point[1] - self.y))
+
+    def selected(self, point):
+        """Response function when Slider is 'selected' (touched).
+
+        :param point: x,y screen location of the touch point.
+        :type point: Tuple[x,y]
+        :return: None
+
+        """
+        local_point = (point[0] - self.x, point[1] - self.y)
+        self.remove(self.slide.rect)
+        self.value = self.slide.update(local_point)
+        self.insert(1, self.slide.rect)
+        self.title.text = f"{self.name}:{int(self.value)}"
