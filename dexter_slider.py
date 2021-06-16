@@ -30,6 +30,7 @@ Implementation Notes
 # * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 # * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
+# pylint: disable=too-many-arguments
 
 # imports
 from adafruit_displayio_layout.widgets.widget import Widget
@@ -41,62 +42,120 @@ import terminalio
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/rsbohn/Dexter_CircuitPython_Slider.git"
 
-class BaseBar():
-    def __init__(self, limits=(0,100), value=50):
+
+class BaseSlide:
+    """Base class for Vertical/Horizontal Slide"""
+
+    def __init__(self, limits=(0, 100), value=50):
         self.limits = limits
         self.value = value
 
     def scale(self, new_value):
         """normalize new_value to a float [0.0:1.0)"""
-        return (new_value-self.limits[0])/(self.limits[1]-self.limits[0])
+        return (new_value - self.limits[0]) / (self.limits[1] - self.limits[0])
 
-class VerticalBar(BaseBar):
+
+class HorizontalSlide(BaseSlide):
+    """A horizontal indicator, grows left to right"""
+
     def __init__(self, width, height, limits, value, fill):
         super().__init__(limits, value)
         self.width = width
         self.height = height
         self.fill = fill
-        self.rect = self._Rect()
+        self.rect = self._as_rect()
 
-    def _Rect(self):
-        scaled_height = int(self.scale(self.value)*self.height)
-        scaled_height = max(3,scaled_height)
-        return Rect(1, self.height-scaled_height+1, self.width-2, scaled_height-2, fill=self.fill)
+    def _as_rect(self):
+        scaled_width = int(self.scale(self.value) * self.width)
+        scaled_width = max(3, scaled_width)
+        return Rect(1, 1, scaled_width - 2, self.height - 2, fill=self.fill)
+
+
+class VerticalSlide(BaseSlide):
+    """A vertical indicator slide, grows upwards"""
+
+    def __init__(self, width, height, limits, value, fill):
+        super().__init__(limits, value)
+        self.width = width
+        self.height = height
+        self.fill = fill
+        self.rect = self._as_rect()
+
+    def _as_rect(self):
+        scaled_height = int(self.scale(self.value) * self.height)
+        scaled_height = max(3, scaled_height)
+        return Rect(
+            1,
+            self.height - scaled_height + 1,
+            self.width - 2,
+            scaled_height - 2,
+            fill=self.fill,
+        )
 
     def update(self, point):
-        a = (self.height-point[1])/self.height
-        self.value = (self.limits[1]-self.limits[0]) * a + self.limits[0]
-        self.rect = self._Rect()
+        """Update with a new slider position."""
+        scaled_value = (self.height - point[1]) / self.height
+        self.value = (self.limits[1] - self.limits[0]) * scaled_value + self.limits[0]
+        self.rect = self._as_rect()
         return self.value
 
+
 class Slider(Widget, Control):
-    def __init__(self, x, y, width, height, name, limits=(0,100), value=50, **kwargs):
-        super().__init__(x=x,y=y,width=width,height=height, **kwargs)
-        self.touch_boundary=(0,0,width,height)
+    """A slider control widget. Value is set within limits.
+
+    -- I should have a long list of parameters here.
+
+    """
+
+    def __init__(self, x, y, width, height, name, limits=(0, 100), value=50, **kwargs):
+        super().__init__(x=x, y=y, width=width, height=height, **kwargs)
+        self.touch_boundary = (0, 0, width, height)
         self.name = name
         self.limits = limits
         self.value = value
-        self.frame_color=0xFFFFFF
-        self.bar_color=0x666666
-        self.error_color=0xCC0000
+        self.frame_color = 0xFFFFFF
+        self.slide_color = 0x666666
+        self.error_color = 0xCC0000
 
-        self.frame = Rect(0,0,width,height,outline=self.frame_color)
+        self.frame = Rect(0, 0, width, height, outline=self.frame_color)
         self.append(self.frame)
         if width >= height:
-            self.bar = HorizontalBar(width, height, limits=limits, value=value, fill=self.bar_color)
+            self.slide = HorizontalSlide(
+                width, height, limits=limits, value=value, fill=self.slide_color
+            )
         else:
-            self.bar = VerticalBar(width, height, limits=limits, value=value, fill=self.bar_color)
-        self.append(self.bar.rect)
-        self.title = Label(terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color)
-        self.title.anchor_point = (0,1/2)
-        self.title.anchored_position = (8, height-12)
+            self.slide = VerticalSlide(
+                width, height, limits=limits, value=value, fill=self.slide_color
+            )
+        self.append(self.slide.rect)
+        self.title = Label(
+            terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color
+        )
+        self.title.anchor_point = (0, 1 / 2)
+        self.title.anchored_position = (8, height - 12)
         self.append(self.title)
+
     def contains(self, point):
-        return super().contains(
-                (point[0]-self.x, point[1]-self.y))
+        """Checks if the Control was touched.  Returns True if the touch_point is within the
+         Control's touch_boundary.
+
+        :param point: x,y screen location of the touch point.
+        :type touch_point: Tuple[x,y]
+        :return: Boolean
+
+        """
+        return super().contains((point[0] - self.x, point[1] - self.y))
+
     def selected(self, point):
-        local_point = (point[0]-self.x, point[1]-self.y)
-        self.remove(self.bar.rect)
-        self.value = self.bar.update(local_point)
-        self.insert(1,self.bar.rect)
+        """Response function when Slider is 'selected' (touched).
+
+        :param point: x,y screen location of the touch point.
+        :type point: Tuple[x,y]
+        :return: None
+
+        """
+        local_point = (point[0] - self.x, point[1] - self.y)
+        self.remove(self.slide.rect)
+        self.value = self.slide.update(local_point)
+        self.insert(1, self.slide.rect)
         self.title.text = f"{self.name}:{int(self.value)}"
