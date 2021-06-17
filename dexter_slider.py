@@ -78,10 +78,11 @@ class HorizontalSlide(BaseSlide):
         :return: Double
 
         """
-        scaled_value = point[0]/self.height
-        self.value = (self.limits[1]-self.limits[0]) * scaled_value + self.limits[0]
+        scaled_value = point[0] / self.height
+        self.value = (self.limits[1] - self.limits[0]) * scaled_value + self.limits[0]
         self.rect = self._as_rect()
         return self.value
+
 
 class VerticalSlide(BaseSlide):
     """A vertical indicator slide, grows upwards"""
