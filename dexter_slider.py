@@ -78,7 +78,7 @@ class HorizontalSlide(BaseSlide):
         :return: Double
 
         """
-        scaled_value = point[0] / self.height
+        scaled_value = point[0] / self.width
         self.value = (self.limits[1] - self.limits[0]) * scaled_value + self.limits[0]
         self.rect = self._as_rect()
         return self.value
@@ -171,4 +171,5 @@ class Slider(Widget, Control):
         self.remove(self.slide.rect)
         self.value = self.slide.update(local_point)
         self.insert(1, self.slide.rect)
+        self.slide.rect.fill = self.slide_color
         self.title.text = f"{self.name}:{int(self.value)}"
