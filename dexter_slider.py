@@ -70,6 +70,19 @@ class HorizontalSlide(BaseSlide):
         scaled_width = max(3, scaled_width)
         return Rect(1, 1, scaled_width - 2, self.height - 2, fill=self.fill)
 
+    def update(self, point):
+        """Update the slider with a new position.
+
+        :param point: x,y local coordinates of touch point
+        :type point: Tuple[x,y]
+        :return: Double
+
+        """
+        scaled_value = point[0] / self.height
+        self.value = (self.limits[1] - self.limits[0]) * scaled_value + self.limits[0]
+        self.rect = self._as_rect()
+        return self.value
+
 
 class VerticalSlide(BaseSlide):
     """A vertical indicator slide, grows upwards"""
