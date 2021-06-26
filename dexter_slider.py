@@ -50,9 +50,20 @@ class BaseSlide:
         self.limits = limits
         self.value = value
 
-    def scale(self, new_value):
+    def _scale(self, new_value):
         """normalize new_value to a float [0.0:1.0)"""
         return (new_value - self.limits[0]) / (self.limits[1] - self.limits[0])
+
+    def _set_value(self, new_value):
+        """directly set a new value"""
+        v = new_value
+        if v < self.limits[0]:
+            v = self.limits[0]
+        if v > self.limits[1]:
+            v = self.limits[1]
+        self.value = v
+        self.rect = self._as_rect()
+        return self.value
 
 
 class HorizontalSlide(BaseSlide):
@@ -66,7 +77,7 @@ class HorizontalSlide(BaseSlide):
         self.rect = self._as_rect()
 
     def _as_rect(self):
-        scaled_width = int(self.scale(self.value) * self.width)
+        scaled_width = int(self._scale(self.value) * self.width)
         scaled_width = max(3, scaled_width)
         return Rect(1, 1, scaled_width - 2, self.height - 2, fill=self.fill)
 
@@ -95,7 +106,7 @@ class VerticalSlide(BaseSlide):
         self.rect = self._as_rect()
 
     def _as_rect(self):
-        scaled_height = int(self.scale(self.value) * self.height)
+        scaled_height = int(self._scale(self.value) * self.height)
         scaled_height = max(3, scaled_height)
         return Rect(
             1,
@@ -125,7 +136,6 @@ class Slider(Widget, Control):
         self.touch_boundary = (0, 0, width, height)
         self.name = name
         self.limits = limits
-        self.value = value
         self.frame_color = 0xFFFFFF
         self.slide_color = 0x666666
         self.error_color = 0xCC0000
@@ -142,7 +152,7 @@ class Slider(Widget, Control):
             )
         self.append(self.slide.rect)
         self.title = Label(
-            terminalio.FONT, text=f"{self.name}:{self.value}", color=self.frame_color
+            terminalio.FONT, text=f"{self.name}:{self.slide.value}", color=self.frame_color
         )
         self.title.anchor_point = (0, 1 / 2)
         self.title.anchored_position = (8, height - 12)
@@ -169,7 +179,25 @@ class Slider(Widget, Control):
         """
         local_point = (point[0] - self.x, point[1] - self.y)
         self.remove(self.slide.rect)
-        self.value = self.slide.update(local_point)
+        self.slide.update(local_point)
         self.insert(1, self.slide.rect)
         self.slide.rect.fill = self.slide_color
-        self.title.text = f"{self.name}:{int(self.value)}"
+        self.title.text = f"{self.name}:{int(self.slide.value)}"
+
+    @property
+    def value(self):
+        """The current Slider value (int)
+
+        :return: int
+        """
+        return self.slide.value
+
+    @value.setter
+    def value(self, new_value):
+        if new_value == self.slide.value:
+            return
+        self.remove(self.slide.rect)
+        self.slide._set_value(new_value)
+        self.insert(1, self.slide.rect)
+        self.slide.rect.fill = 0xFFFF00 #self.slide_color
+        self.title.text = f"{self.name}:{int(self.slide.value)}"
