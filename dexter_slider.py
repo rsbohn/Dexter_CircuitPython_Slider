@@ -135,13 +135,24 @@ class Slider(Widget, Control):
 
     """
 
-    def __init__(self, x, y, width, height, name, limits=(0, 100), value=50, **kwargs):
+    def __init__(
+        self,
+        x,
+        y,
+        width,
+        height,
+        name,
+        limits=(0, 100),
+        value=50,
+        slide_color=0x666666,
+        **kwargs
+    ):
         super().__init__(x=x, y=y, width=width, height=height, **kwargs)
         self.touch_boundary = (0, 0, width, height)
         self.name = name
         self.limits = limits
         self.frame_color = 0xFFFFFF
-        self.slide_color = 0x666666
+        self.slide_color = slide_color
         self.error_color = 0xCC0000
 
         self.frame = Rect(0, 0, width, height, outline=self.frame_color)
