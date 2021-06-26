@@ -49,19 +49,23 @@ class BaseSlide:
     def __init__(self, limits=(0, 100), value=50):
         self.limits = limits
         self.value = value
+        self.rect = None
 
     def _scale(self, new_value):
         """normalize new_value to a float [0.0:1.0)"""
         return (new_value - self.limits[0]) / (self.limits[1] - self.limits[0])
 
-    def _set_value(self, new_value):
+    def _as_rect(self):
+        raise NotImplementedError("Called abstract method _as_rect()")
+
+    def set_value(self, new_value):
         """directly set a new value"""
-        v = new_value
-        if v < self.limits[0]:
-            v = self.limits[0]
-        if v > self.limits[1]:
-            v = self.limits[1]
-        self.value = v
+        temp = new_value
+        if temp < self.limits[0]:
+            temp = self.limits[0]
+        if temp > self.limits[1]:
+            temp = self.limits[1]
+        self.value = temp
         self.rect = self._as_rect()
         return self.value
 
@@ -152,7 +156,9 @@ class Slider(Widget, Control):
             )
         self.append(self.slide.rect)
         self.title = Label(
-            terminalio.FONT, text=f"{self.name}:{self.slide.value}", color=self.frame_color
+            terminalio.FONT,
+            text=f"{self.name}:{self.slide.value}",
+            color=self.frame_color,
         )
         self.title.anchor_point = (0, 1 / 2)
         self.title.anchored_position = (8, height - 12)
@@ -197,7 +203,7 @@ class Slider(Widget, Control):
         if new_value == self.slide.value:
             return
         self.remove(self.slide.rect)
-        self.slide._set_value(new_value)
+        self.slide.set_value(new_value)
         self.insert(1, self.slide.rect)
-        self.slide.rect.fill = 0xFFFF00 #self.slide_color
+        self.slide.rect.fill = self.slide_color
         self.title.text = f"{self.name}:{int(self.slide.value)}"
