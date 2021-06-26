@@ -129,10 +129,17 @@ class VerticalSlide(BaseSlide):
 
 
 class Slider(Widget, Control):
-    """A slider control widget. Value is set within limits.
+    """A slider control widget. Holds a value within limits. The user can set the value by touch.
+    Can be vertical or horizontal, whichever is larger.
+    Has a 'Slide' which grows or shrinks according to user input.
 
-    -- I should have a long list of parameters here.
-
+    :param int x: pixel position
+    :param int y: pixel position
+    :param int width: width of the Slider
+    :param int height: height of the Slider
+    :param string name: name of the slider, used to create a title
+    :param None,tuple(float,float): (min, max) limits for the slider, defaults to (0,100)
+    :param None,float value: initial value, defaults to 50
     """
 
     def __init__(self, x, y, width, height, name, limits=(0, 100), value=50, **kwargs):
